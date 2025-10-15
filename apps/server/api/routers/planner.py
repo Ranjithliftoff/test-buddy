@@ -7,4 +7,4 @@ router = APIRouter()
 @router.post("/plan", response_model=PlanResponse)
 def plan(req: PlanRequest):
     out = registry.get("planner").run(req.dict())
-    return PlanResponse(sid=req.sid, items=out["items"])
+    return PlanResponse(**out)

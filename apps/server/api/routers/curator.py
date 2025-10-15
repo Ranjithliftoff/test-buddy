@@ -7,4 +7,4 @@ router = APIRouter()
 @router.post("/curate", response_model=CurateResponse)
 def curate(req: CurateRequest):
     out = registry.get("curator").run(req.dict())
-    return CurateResponse(sid=req.sid, run_id=req.run_id, insights=out["insights"])
+    return CurateResponse(**out)

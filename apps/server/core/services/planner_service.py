@@ -1,13 +1,18 @@
-from typing import Dict, Any
+from typing import Dict, Any, List
 from ..base import BaseAgent
 
 class PlannerAgent(BaseAgent):
     def run(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        goals = payload.get("goals", [])
-        items = [
-            {"id": "plan-1", "title": "Auth flow", "rationale": "High impact"},
-            {"id": "plan-2", "title": "Checkout smoke", "rationale": "Critical path"},
+        intake: List[Dict[str, Any]] = payload.get("intake", [])
+        bullets = [
+            "Identify critical user journeys (Auth, Checkout)",
+            "Design smoke scenarios for high-risk flows",
+            "Draft regression coverage across modules",
         ]
-        if goals:
-            items.append({"id": "plan-3", "title": goals[0], "rationale": "User goal"})
-        return {"items": items}
+        if intake:
+            kinds = ", ".join(sorted({i.get("kind") for i in intake if i.get("kind")}))
+            bullets.insert(0, f"Parse intake sources: {kinds}")
+        return {
+            "title": "High-level Test Plan",
+            "bullets": bullets
+        }

@@ -7,4 +7,4 @@ router = APIRouter()
 @router.post("/author", response_model=AuthorResponse)
 def author(req: AuthorRequest):
     out = registry.get("author").run(req.dict())
-    return AuthorResponse(sid=req.sid, artifacts=out["artifacts"])
+    return AuthorResponse(**out)

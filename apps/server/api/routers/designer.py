@@ -7,4 +7,4 @@ router = APIRouter()
 @router.post("/design", response_model=DesignResponse)
 def design(req: DesignRequest):
     out = registry.get("designer").run(req.dict())
-    return DesignResponse(scenarios=out["scenarios"], sid=req.sid)
+    return DesignResponse(**out)
