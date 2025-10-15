@@ -1,8 +1,10 @@
 from fastapi import APIRouter
+from core.base import registry
+from core.models import CurateRequest, CurateResponse
 
-router = APIRouter(prefix="/curate", tags=["curator"])
+router = APIRouter()
 
-
-@router.get("/")
-async def curate_root():
-    return {"message": "curator root"}
+@router.post("/curate", response_model=CurateResponse)
+def curate(req: CurateRequest):
+    out = registry.get("curator").run(req.dict())
+    return CurateResponse(sid=req.sid, run_id=req.run_id, insights=out["insights"])
