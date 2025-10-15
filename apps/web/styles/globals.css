@@ -1,3 +1,7 @@
-/* Tailwind base placeholder - include your Tailwind directives if using Tailwind */
-html,body,#root{height:100%}
-body{font-family:Inter, Arial, sans-serif;margin:0;padding:0}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+html, body { height: 100%; }
+body { @apply bg-white text-gray-900; font-family: Inter, Arial, sans-serif; }
