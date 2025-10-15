@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routers import health, sessions, planner, designer, author, executor, curator, functional
+from api.routers import health, sessions, planner, designer, author, executor, curator, functional, uiux
 
 app = FastAPI(title='Test Buddy API')
 
@@ -21,3 +21,4 @@ app.include_router(author.router)
 app.include_router(executor.router)
 app.include_router(curator.router)
 app.include_router(functional.router)
+app.include_router(uiux.router)
