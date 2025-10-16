@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import List, Optional, Literal, Dict, Any
 
-# ------------------ existing (kept) ------------------
+# ---------- your existing (kept, with sid added where needed) ----------
 
 class SessionCreate(BaseModel):
     module: Literal["uiux","functional","api","smoke","regression"] = "functional"
@@ -17,39 +17,42 @@ class Decision(BaseModel):
     note: Optional[str] = None
 
 class PlanRequest(BaseModel):
+    sid: str                         # REQUIRED for persistence
     intake: List[IntakeItem] = []
 
 class DesignRequest(BaseModel):
+    sid: str                         # REQUIRED
     outline: Optional[str] = None
 
 class AuthorRequest(BaseModel):
+    sid: str                         # REQUIRED
     scenarios: List[str] = []
 
 class ExecuteRequest(BaseModel):
+    sid: str                         # REQUIRED
     suite: Literal["smoke","regression","generated"] = "generated"
 
 class CurateRequest(BaseModel):
+    sid: str                         # REQUIRED
     run_id: str
 
 class PlanResponse(BaseModel):
     title: str
     bullets: List[str]
 
-# ------------------ additions for Phase 2 ------------------
+# ---------- NEW: standardize the rest of the responses ----------
 
 class DesignResponse(BaseModel):
-    """High-level scenarios (Gherkin-like titles) to be authored into feature files."""
     title: str
-    scenarios: List[str]  # e.g. ["Login works", "Checkout smoke path"]
+    scenarios: List[str]
 
 class Artifact(BaseModel):
-    """Cypress + Cucumber artifacts only."""
     id: str
     toolchain: Literal["cypress-cucumber"] = "cypress-cucumber"
-    feature_path: str       # e.g. cypress/e2e/auth/login.feature
-    feature_text: str       # .feature content (Gherkin)
-    step_path: str          # e.g. cypress/e2e/auth/login.steps.js
-    step_text: str          # step definitions
+    feature_path: str
+    feature_text: str
+    step_path: str
+    step_text: str
 
 class AuthorResponse(BaseModel):
     summary: str
@@ -57,8 +60,8 @@ class AuthorResponse(BaseModel):
 
 class ExecuteResponse(BaseModel):
     run_id: str
-    summary: Dict[str, Any]  # { total, passed, failed, durationMs, suite }
+    summary: Dict[str, Any]  # {total, passed, failed, durationMs, suite}
 
 class CurateResponse(BaseModel):
     run_id: str
-    insights: List[Dict[str, Any]]  # [{"id":"ins-1","kind":"flaky","text":"..."}]
+    insights: List[Dict[str, Any]]

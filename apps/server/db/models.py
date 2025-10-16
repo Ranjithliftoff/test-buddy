@@ -4,7 +4,7 @@ from sqlalchemy.orm import relationship, Mapped, mapped_column
 import uuid
 from .base import Base
 
-def uuid_pk() -> Mapped[str]:
+def uuid_pk():
     return mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
 class Session(Base):
@@ -31,7 +31,6 @@ class Plan(Base):
     created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
     title = Column(Text, nullable=False)
     bullets = Column(JSONB, nullable=False)
-
     session = relationship("Session", back_populates="plans")
 
 class Scenario(Base):
@@ -42,7 +41,6 @@ class Scenario(Base):
     title = Column(Text, nullable=False)
     gherkin = Column(Text, nullable=True)
     meta = Column(JSONB, nullable=True)
-
     session = relationship("Session", back_populates="scenarios")
 
 class Artifact(Base):
@@ -55,7 +53,6 @@ class Artifact(Base):
     feature_text = Column(Text, nullable=False)
     step_path = Column(Text, nullable=False)
     step_text = Column(Text, nullable=False)
-
     session = relationship("Session", back_populates="artifacts")
 
 class Run(Base):
@@ -64,7 +61,6 @@ class Run(Base):
     session_id = mapped_column(UUID(as_uuid=True), ForeignKey("sessions.id"), index=True, nullable=False)
     created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
     summary = Column(JSONB, nullable=False)
-
     session = relationship("Session", back_populates="runs")
 
 class Insight(Base):
@@ -75,7 +71,6 @@ class Insight(Base):
     created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
     kind = Column(String, nullable=False)
     text = Column(Text, nullable=False)
-
     session = relationship("Session", back_populates="insights")
     run = relationship("Run")
 
@@ -84,8 +79,7 @@ class Decision(Base):
     id = uuid_pk()
     session_id = mapped_column(UUID(as_uuid=True), ForeignKey("sessions.id"), index=True, nullable=False)
     created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    step = Column(String, nullable=False)   # planner | designer | author | executor | curator
+    step = Column(String, nullable=False)     # planner | designer | author | executor | curator
     accepted = Column(Boolean, nullable=False, default=True)
     note = Column(Text, nullable=True)
-
     session = relationship("Session", back_populates="decisions")

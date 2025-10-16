@@ -1,1 +1,1 @@
-from . import health, sessions, planner, designer, author, executor, curator
+# makes "from api.routers import X" work
