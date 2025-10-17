@@ -1,2 +1,2 @@
--r apps/server/requirements.txt
 psycopg[binary]==3.2.2
+-r apps/server/requirements.txt
