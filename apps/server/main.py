@@ -9,8 +9,13 @@ from core.services.curator_service import CuratorAgent
 
 from api.routers import health, sessions, planner, designer, author, executor, curator, functional, uiux
 
+# perform a quick runtime DB driver check early so deploy logs are clearer
+from core import db_check
+
 app = FastAPI(title='Test Buddy API')
 
+# run DB driver check at import time (fails fast with a clear message if missing)
+db_check.check_db_driver()
 registry.register(PlannerAgent("planner"))
 registry.register(DesignerAgent("designer"))
 registry.register(AuthorAgent("author"))
@@ -34,3 +39,7 @@ app.include_router(executor.router)
 app.include_router(curator.router)
 app.include_router(functional.router)
 app.include_router(uiux.router)
+
+@app.get("/")
+def root():
+    return {"ok": True, "service": "test-buddy-api", "docs": "/docs", "health": "/health"}
