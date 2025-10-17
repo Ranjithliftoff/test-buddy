@@ -7,10 +7,14 @@ from core.services.author_service import AuthorAgent
 from core.services.executor_service import ExecutorAgent
 from core.services.curator_service import CuratorAgent
 
-from api.routers import health, sessions, planner, designer, author, executor, curator, functional, uiux
-
 # perform a quick runtime DB driver check early so deploy logs are clearer
 from core import db_check
+
+# run DB driver check before importing routers so we fail fast with a clear
+# message if neither psycopg (psycopg3) nor psycopg2 is installed.
+db_check.check_db_driver()
+
+from api.routers import health, sessions, planner, designer, author, executor, curator, functional, uiux
 
 app = FastAPI(title='Test Buddy API')
 
