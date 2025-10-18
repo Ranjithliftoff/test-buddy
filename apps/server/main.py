@@ -1,6 +1,7 @@
 # apps/server/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from api.routers import debug_db
 
 from core.base import registry
 from core.services.planner_service import PlannerAgent
@@ -57,6 +58,7 @@ app.include_router(executor.router)
 app.include_router(curator.router)
 app.include_router(functional.router)
 app.include_router(uiux.router)
+app.include_router(debug_db.router)
 
 # Create tables if they don't exist (safe to run every boot)
 @app.get("/")
