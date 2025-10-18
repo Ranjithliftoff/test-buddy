@@ -11,6 +11,8 @@ from core.services.curator_service import CuratorAgent
 
 # Fail fast in deploy logs if no PostgreSQL driver is present
 from core import db_check
+from core.init_db import ensure_tables
+
 db_check.check_db_driver()
 
 # Import routers only after the driver check so the error shows up clearly
@@ -26,8 +28,6 @@ from api.routers import (
     uiux,
 )
 
-# Ensure DB tables exist on startup (simple bootstrap; you can switch to Alembic later)
-from core.init_db import ensure_tables
 
 app = FastAPI(title="Test Buddy API")
 
@@ -59,10 +59,12 @@ app.include_router(functional.router)
 app.include_router(uiux.router)
 
 # Create tables if they don't exist (safe to run every boot)
-@app.on_event("startup")
-def _startup_create_tables() -> None:
-    ensure_tables()
-
 @app.get("/")
 def root():
     return {"ok": True, "service": "test-buddy-api", "docs": "/docs", "health": "/health"}
+
+# ✅ ADD THIS
+@app.on_event("startup")
+def _startup_create_tables():
+    """Ensure database tables exist on startup."""
+    ensure_tables()

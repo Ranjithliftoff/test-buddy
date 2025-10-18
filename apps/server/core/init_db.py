@@ -1,7 +1,7 @@
 # apps/server/core/init_db.py
-from db.base import Base, engine
+from db.base import engine, Base
 
-def ensure_tables() -> None:
-    # Simple bootstrap: create tables if they don't exist.
-    # You can switch to Alembic later for real migrations.
+def ensure_tables():
+    print("[DB] Ensuring tables exist...")
     Base.metadata.create_all(bind=engine)
+    print("[DB] Tables checked/created successfully.")
