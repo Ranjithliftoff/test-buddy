@@ -1,90 +1,91 @@
-# apps/server/db/crud.py
-from typing import Optional
+import json
 import uuid
-from sqlalchemy import select
+from typing import List, Optional, Dict, Any
+
 from sqlalchemy.orm import Session
 from .base import SessionLocal
 from . import models as m
 
-# --- Session helpers ---
-def get_db() -> Session:
-    return SessionLocal()
-
-def get_or_create_session(db: Session, module: str) -> m.Session:
-    # Re-use latest open session for same module in last hour if you want; simple create for now.
-    new_sess = m.Session(module=module)
-    db.add(new_sess)
+# ---- Sessions ----
+def create_session(db: Session, module: str) -> m.Session:
+    s = m.Session(module=module)
+    db.add(s)
     db.commit()
-    db.refresh(new_sess)
-    return new_sess
+    db.refresh(s)
+    return s
 
-def get_session(db: Session, sid: uuid.UUID) -> Optional[m.Session]:
-    return db.get(m.Session, sid)
+def get_session(db: Session, sid: str) -> Optional[m.Session]:
+    try:
+        uid = uuid.UUID(sid)
+    except Exception:
+        return None
+    return db.get(m.Session, uid)
 
-# --- Decision ---
-def add_decision(db: Session, sid: uuid.UUID, step: str, accepted: bool, note: Optional[str]) -> m.Decision:
-    dec = m.Decision(session_id=sid, step=step, accepted=accepted, note=note)
-    db.add(dec)
+# ---- Decisions ----
+def add_decision(db: Session, sid: str, step: str, accepted: bool, note: Optional[str]) -> m.Decision:
+    uid = uuid.UUID(sid)
+    d = m.Decision(session_id=uid, step=step, accepted=accepted, note=note)
+    db.add(d)
     db.commit()
-    db.refresh(dec)
-    return dec
+    db.refresh(d)
+    return d
 
-# --- Plan ---
-def save_plan(db: Session, sid: uuid.UUID, title: str, bullets: list[str]) -> m.Plan:
-    plan = m.Plan(session_id=sid, title=title, bullets={"bullets": bullets})
-    db.add(plan)
+# ---- Plans ----
+def save_plan(db: Session, sid: str, title: str, bullets: List[str]) -> m.Plan:
+    uid = uuid.UUID(sid)
+    p = m.Plan(session_id=uid, title=title, bullets={"bullets": bullets})
+    db.add(p)
     db.commit()
-    db.refresh(plan)
-    return plan
+    db.refresh(p)
+    return p
 
-# --- Artifacts (feature + steps text) ---
-def save_artifact(
-    db: Session,
-    sid: uuid.UUID,
-    kind: str,
-    toolchain: str,
-    feature_path: Optional[str],
-    step_path: Optional[str],
-    feature_text: Optional[str],
-    step_text: Optional[str],
-) -> m.Artifact:
-    art = m.Artifact(
-        session_id=sid,
-        kind=kind,
-        toolchain=toolchain,
-        feature_path=feature_path,
-        step_path=step_path,
-        feature_text=feature_text,
-        step_text=step_text,
-    )
-    db.add(art)
+# ---- Artifacts (Cypress+Cucumber) ----
+def save_artifacts(db: Session, sid: str, artifacts: List[Dict[str, Any]]) -> List[m.Artifact]:
+    uid = uuid.UUID(sid)
+    rows: List[m.Artifact] = []
+    for a in artifacts:
+        row = m.Artifact(
+            session_id=uid,
+            kind=a.get("kind", "feature"),
+            toolchain=a.get("toolchain", "cypress-cucumber"),
+            feature_path=a.get("feature_path"),
+            step_path=a.get("step_path"),
+            feature_text=a.get("feature_text"),
+            step_text=a.get("step_text"),
+        )
+        db.add(row)
+        rows.append(row)
     db.commit()
-    db.refresh(art)
-    return art
+    for r in rows:
+        db.refresh(r)
+    return rows
 
-# --- Runs ---
-def save_run(db: Session, sid: uuid.UUID, suite: str, status: str, summary: Optional[dict]) -> m.Run:
-    run = m.Run(session_id=sid, suite=suite, status=status, summary=summary or {})
-    db.add(run)
+# ---- Runs ----
+def save_run(db: Session, sid: str, suite: str, status: str, summary: Dict[str, Any]) -> m.Run:
+    uid = uuid.UUID(sid)
+    r = m.Run(session_id=uid, suite=suite, status=status, summary=summary or {})
+    db.add(r)
     db.commit()
-    db.refresh(run)
-    return run
+    db.refresh(r)
+    return r
 
-def get_session_full(db: Session, sid: uuid.UUID) -> dict:
-    sess = db.get(m.Session, sid)
-    if not sess:
-        return {}
+# ---- Session aggregate ----
+def get_session_full(db: Session, sid: str) -> Optional[Dict[str, Any]]:
+    s = get_session(db, sid)
+    if not s:
+        return None
     return {
-        "id": str(sess.id),
-        "module": sess.module,
-        "created_at": sess.created_at.isoformat(),
-        "decisions": [
-            {"id": d.id, "step": d.step, "accepted": d.accepted, "note": d.note}
-            for d in sess.decisions
-        ],
+        "id": str(s.id),
+        "module": s.module,
+        "created_at": s.created_at.isoformat(),
         "plans": [
-            {"id": p.id, "title": p.title, "bullets": p.bullets.get("bullets", [])}
-            for p in sess.plans
+            {
+                "id": p.id,
+                "title": p.title,
+                "bullets": (p.bullets or {}).get("bullets", []),
+                "created_at": p.created_at.isoformat(),
+            }
+            for p in s.plans
         ],
         "artifacts": [
             {
@@ -93,11 +94,28 @@ def get_session_full(db: Session, sid: uuid.UUID) -> dict:
                 "toolchain": a.toolchain,
                 "feature_path": a.feature_path,
                 "step_path": a.step_path,
+                "created_at": a.created_at.isoformat(),
             }
-            for a in sess.artifacts
+            for a in s.artifacts
         ],
         "runs": [
-            {"id": r.id, "suite": r.suite, "status": r.status, "summary": r.summary}
-            for r in sess.runs
+            {
+                "id": r.id,
+                "suite": r.suite,
+                "status": r.status,
+                "summary": r.summary or {},
+                "created_at": r.created_at.isoformat(),
+            }
+            for r in s.runs
+        ],
+        "decisions": [
+            {
+                "id": d.id,
+                "step": d.step,
+                "accepted": d.accepted,
+                "note": d.note,
+                "created_at": d.created_at.isoformat(),
+            }
+            for d in s.decisions
         ],
     }

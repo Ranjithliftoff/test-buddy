@@ -1,67 +1,68 @@
 from pydantic import BaseModel
 from typing import List, Optional, Literal, Dict, Any
 
-# ---------- your existing (kept, with sid added where needed) ----------
-
+# ----- Request models (sid REQUIRED for persistence) -----
 class SessionCreate(BaseModel):
-    module: Literal["uiux","functional","api","smoke","regression"] = "functional"
+    module: Literal["uiux", "functional", "api", "smoke", "regression"] = "functional"
 
 class IntakeItem(BaseModel):
-    kind: Literal["figma","web","doc","sheet"]
+    kind: Literal["figma", "web", "doc", "sheet"]
     url: Optional[str] = None
     note: Optional[str] = None
 
 class Decision(BaseModel):
-    step: Literal["planner","designer","author","executor","curator"]
+    step: Literal["planner", "designer", "author", "executor", "curator"]
     accepted: bool
     note: Optional[str] = None
 
 class PlanRequest(BaseModel):
-    sid: str                         # REQUIRED for persistence
+    sid: str
     intake: List[IntakeItem] = []
 
 class DesignRequest(BaseModel):
-    sid: str                         # REQUIRED
+    sid: str
     outline: Optional[str] = None
 
 class AuthorRequest(BaseModel):
-    sid: str                         # REQUIRED
+    sid: str
     scenarios: List[str] = []
 
 class ExecuteRequest(BaseModel):
-    sid: str                         # REQUIRED
-    suite: Literal["smoke","regression","generated"] = "generated"
+    sid: str
+    suite: Literal["smoke", "regression", "generated"] = "generated"
 
 class CurateRequest(BaseModel):
-    sid: str                         # REQUIRED
+    sid: str
     run_id: str
 
+# ----- Response models -----
 class PlanResponse(BaseModel):
+    sid: Optional[str] = None
     title: str
     bullets: List[str]
-
-# ---------- NEW: standardize the rest of the responses ----------
+    plan_id: Optional[int] = None
 
 class DesignResponse(BaseModel):
+    sid: Optional[str] = None
     title: str
     scenarios: List[str]
 
 class Artifact(BaseModel):
-    id: str
+    id: int
+    kind: Literal["feature", "steps", "asset"] = "feature"
     toolchain: Literal["cypress-cucumber"] = "cypress-cucumber"
-    feature_path: str
-    feature_text: str
-    step_path: str
-    step_text: str
+    feature_path: Optional[str] = None
+    step_path: Optional[str] = None
+    feature_text: Optional[str] = None
+    step_text: Optional[str] = None
 
 class AuthorResponse(BaseModel):
+    sid: Optional[str] = None
     summary: str
     artifacts: List[Artifact]
 
 class ExecuteResponse(BaseModel):
+    sid: Optional[str] = None
     run_id: str
-    summary: Dict[str, Any]  # {total, passed, failed, durationMs, suite}
-
-class CurateResponse(BaseModel):
-    run_id: str
-    insights: List[Dict[str, Any]]
+    suite: str
+    summary: Dict[str, Any]

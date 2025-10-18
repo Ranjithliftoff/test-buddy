@@ -1,16 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, HTTPException
 from core.base import registry
-from core.models import CurateRequest, CurateResponse
-from db.crud import add_insights
-from api.deps import get_db
+from core.models import CurateRequest
 
-router = APIRouter()
+router = APIRouter(tags=["curator"])
 
-@router.post("/curate", response_model=CurateResponse)
-def curate(req: CurateRequest, db: Session = Depends(get_db)):
+@router.post("/curate")
+def curate(req: CurateRequest):
     if not req.sid:
         raise HTTPException(status_code=400, detail="sid is required")
-    out = registry.get("curator").run(req.dict())
-    add_insights(db, session_id=req.sid, run_id=req.run_id, insights=out["insights"])
-    return CurateResponse(**out)
+    out = registry.get("curator").run(req.model_dump())
+    return {"sid": req.sid, "run_id": req.run_id, "insights": out.get("insights", [])}
