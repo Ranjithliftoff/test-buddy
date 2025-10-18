@@ -1,5 +1,7 @@
+# apps/server/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from core.base import registry
 from core.services.planner_service import PlannerAgent
 from core.services.designer_service import DesignerAgent
@@ -7,25 +9,36 @@ from core.services.author_service import AuthorAgent
 from core.services.executor_service import ExecutorAgent
 from core.services.curator_service import CuratorAgent
 
-# perform a quick runtime DB driver check early so deploy logs are clearer
+# Fail fast in deploy logs if no PostgreSQL driver is present
 from core import db_check
-
-# run DB driver check before importing routers so we fail fast with a clear
-# message if neither psycopg (psycopg3) nor psycopg2 is installed.
 db_check.check_db_driver()
 
-from api.routers import health, sessions, planner, designer, author, executor, curator, functional, uiux
+# Import routers only after the driver check so the error shows up clearly
+from api.routers import (
+    health,
+    sessions,
+    planner,
+    designer,
+    author,
+    executor,
+    curator,
+    functional,
+    uiux,
+)
 
-app = FastAPI(title='Test Buddy API')
+# Ensure DB tables exist on startup (simple bootstrap; you can switch to Alembic later)
+from core.init_db import ensure_tables
 
-# run DB driver check at import time (fails fast with a clear message if missing)
-db_check.check_db_driver()
+app = FastAPI(title="Test Buddy API")
+
+# Register agents
 registry.register(PlannerAgent("planner"))
 registry.register(DesignerAgent("designer"))
 registry.register(AuthorAgent("author"))
 registry.register(ExecutorAgent("executor"))
 registry.register(CuratorAgent("curator"))
 
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -34,6 +47,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Routers
 app.include_router(health.router)
 app.include_router(sessions.router)
 app.include_router(planner.router)
@@ -43,6 +57,11 @@ app.include_router(executor.router)
 app.include_router(curator.router)
 app.include_router(functional.router)
 app.include_router(uiux.router)
+
+# Create tables if they don't exist (safe to run every boot)
+@app.on_event("startup")
+def _startup_create_tables() -> None:
+    ensure_tables()
 
 @app.get("/")
 def root():

@@ -24,3 +24,7 @@ npm run dev
 ```
 
 The frontend expects the backend base URL in `.env.local` as `NEXT_PUBLIC_API_BASE`.
+
+Note: when changing Python runtime or compiled DB drivers (psycopg / psycopg2),
+clear your Render build cache and redeploy the exact commit to force a clean
+rebuild of the venv so correct binary wheels are installed.
