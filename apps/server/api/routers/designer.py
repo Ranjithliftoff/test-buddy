@@ -1,12 +1,55 @@
-from fastapi import APIRouter, HTTPException
-from core.base import registry
-from core.models import DesignRequest, DesignResponse
+# apps/server/api/routers/designer.py
+from __future__ import annotations
+from uuid import UUID
+from fastapi import APIRouter, Depends, Header, HTTPException
+from sqlalchemy.orm import Session
 
-router = APIRouter(tags=["designer"])
+from db.base import SessionLocal
+from db import models as m
+from api.models import DesignRequest, DesignResponse
+from core.services.designer_service import DesignerAgent
 
-@router.post("/design", response_model=DesignResponse)
-def design(req: DesignRequest):
-    if not req.sid:
-        raise HTTPException(status_code=400, detail="sid is required")
-    out = registry.get("designer").run(req.model_dump())
-    return DesignResponse(sid=req.sid, title=out.get("title", "Design"), scenarios=out.get("scenarios", []))
+router = APIRouter(prefix="/design", tags=["designer"])
+designer = DesignerAgent()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@router.post(
+    "",
+    response_model=DesignResponse,
+    summary="Generate scenario outlines (transient; not persisted)"
+)
+def create_design(
+    req: DesignRequest,
+    x_session_id: str = Header(..., alias="X-Session-Id"),
+    db: Session = Depends(get_db),
+):
+    # Validate session id header
+    try:
+        sid = UUID(x_session_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid X-Session-Id UUID")
+
+    # Ensure session exists
+    sess = db.query(m.Session).filter(m.Session.id == sid).first()
+    if not sess:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Use the latest plan's bullets (if present)
+    last_plan = (
+        db.query(m.Plan)
+        .filter(m.Plan.session_id == sid)
+        .order_by(m.Plan.id.desc())
+        .first()
+    )
+    bullets = (last_plan.bullets or {}).get("bullets", []) if last_plan else []
+
+    # Generate scenarios (no persistence)
+    result = designer.design(bullets, req.outline)
+
+    return DesignResponse(scenarios=result.get("scenarios", []))

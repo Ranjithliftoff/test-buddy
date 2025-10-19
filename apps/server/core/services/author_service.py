@@ -1,70 +1,64 @@
+# apps/server/core/services/author_service.py
+from __future__ import annotations
 from typing import Dict, Any, List
-from ..base import BaseAgent
 
-FEATURE_TMPL = """Feature: {title}
+AUTHOR_SYS = (
+    "You are a Test Author. Convert scenario outlines (Given/When/Then) into:\n"
+    "1) A single Gherkin feature file (.feature)\n"
+    "2) A matching JavaScript step definitions file for Cypress+Cucumber.\n"
+    "Keep steps reusable, use regex where possible.\n"
+    'Return JSON: {"feature": {"path": string, "text": string}, "steps": {"path": string, "text": string}}\n'
+)
 
-  Scenario: {scn1}
-    Given I am on the login page
-    When I submit valid credentials
-    Then I should land on the dashboard
+class AuthorAgent:
+    def __init__(self, name: str = "author"):
+        self.name = name
+        # We keep this deterministic builder for now.
+        # Later you can wire the LLM like Planner/Designer if you prefer AI-authored artifacts.
 
-  Scenario: {scn2}
-    Given I am on the login page
-    When I submit invalid credentials
-    Then I should see an error message
-"""
-
-STEP_TMPL = """import {{ Given, When, Then }} from "@badeball/cypress-cucumber-preprocessor";
-
-Given("I am on the login page", () => {{
-  cy.visit("/login");
-}});
-
-When("I submit valid credentials", () => {{
-  cy.get('[name="email"]').type("user@example.com");
-  cy.get('[name="password"]').type("correct-horse-battery-staple");
-  cy.contains("button","Sign in").click();
-}});
-
-When("I submit invalid credentials", () => {{
-  cy.get('[name="email"]').type("user@example.com");
-  cy.get('[name="password"]').type("wrong");
-  cy.contains("button","Sign in").click();
-}});
-
-Then("I should land on the dashboard", () => {{
-  cy.url().should("include", "/dashboard");
-}});
-
-Then("I should see an error message", () => {{
-  cy.contains(/invalid|error/i).should("be.visible");
-}});
-"""
-
-class AuthorAgent(BaseAgent):
-    def run(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        scenarios: List[str] = payload.get("scenarios") or [
-            "Login works with valid credentials",
-            "Login prevents access with invalid credentials"
+    def author(self, scenarios: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Build a simple feature + steps deterministically from the given scenarios."""
+        feature_lines = ["Feature: Generated Scenarios"]
+        steps_lines = [
+            "import { Given, When, Then } from '@badeball/cypress-cucumber-preprocessor';",
+            "",
         ]
-        title = "Authentication"
 
-        feature_text = FEATURE_TMPL.format(
-            title=title,
-            scn1=scenarios[0],
-            scn2=scenarios[1] if len(scenarios) > 1 else "Login prevents access with invalid credentials"
-        )
-        step_text = STEP_TMPL
+        for sc in scenarios or []:
+            if not isinstance(sc, dict):
+                continue
 
-        artifacts = [{
-            "id": "auth-login",
-            "toolchain": "cypress-cucumber",
-            "feature_path": "cypress/e2e/auth/login.feature",
-            "feature_text": feature_text,
-            "step_path": "cypress/e2e/auth/login.steps.js",
-            "step_text": step_text
-        }]
+            name = sc.get("name", "Scenario")
+            tags = " ".join(sc.get("tags", []))
+            given = sc.get("given", [])
+            when = sc.get("when", [])
+            then = sc.get("then", [])
+
+            # Build feature content
+            if tags:
+                feature_lines.append(tags)
+            feature_lines.append(f"Scenario: {name}")
+            for g in given:
+                feature_lines.append(f"  Given {g}")
+            for w in when:
+                feature_lines.append(f"  When {w}")
+            for t in then:
+                feature_lines.append(f"  Then {t}")
+            feature_lines.append("")
+
+            # Build stub step definitions (can later be replaced by AI-generated ones)
+            for g in given:
+                steps_lines.append(f"Given('{g}', () => {{ /* TODO: implement */ }});")
+            for w in when:
+                steps_lines.append(f"When('{w}', () => {{ /* TODO: implement */ }});")
+            for t in then:
+                steps_lines.append(f"Then('{t}', () => {{ /* TODO: implement */ }});")
+            steps_lines.append("")
+
+        feature_text = "\n".join(feature_lines).strip() + "\n"
+        steps_text = "\n".join(steps_lines).strip() + "\n"
+
         return {
-            "summary": f"Generated {len(artifacts)} Cypress+Cucumber artifact(s)",
-            "artifacts": artifacts
+            "feature": {"path": "cypress/e2e/generated.feature", "text": feature_text},
+            "steps": {"path": "cypress/e2e/generated.steps.cy.js", "text": steps_text},
         }

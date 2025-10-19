@@ -1,8 +1,15 @@
 # apps/server/main.py
+from __future__ import annotations
+
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api.routers import debug_db
 
+# Fail fast if DB driver is missing/mismatched
+from core import db_check
+db_check.check_db_driver()
+
+# Agents (keep these if your routes depend on them)
 from core.base import registry
 from core.services.planner_service import PlannerAgent
 from core.services.designer_service import DesignerAgent
@@ -10,13 +17,7 @@ from core.services.author_service import AuthorAgent
 from core.services.executor_service import ExecutorAgent
 from core.services.curator_service import CuratorAgent
 
-# Fail fast in deploy logs if no PostgreSQL driver is present
-from core import db_check
-from core.init_db import ensure_tables
-
-db_check.check_db_driver()
-
-# Import routers only after the driver check so the error shows up clearly
+# Routers
 from api.routers import (
     health,
     sessions,
@@ -29,44 +30,45 @@ from api.routers import (
     uiux,
 )
 
+API_PREFIX = "/api"
 
-app = FastAPI(title="Test Buddy API")
+app = FastAPI(title="Test Buddy API", version="4.0")
 
-# Register agents
+# CORS – tighten to your frontend origin when ready
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # e.g., ["https://your-frontend.domain"]
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Register agents (if used by routes)
 registry.register(PlannerAgent("planner"))
 registry.register(DesignerAgent("designer"))
 registry.register(AuthorAgent("author"))
 registry.register(ExecutorAgent("executor"))
 registry.register(CuratorAgent("curator"))
 
-# CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Public health route
+app.include_router(health.router)  # /health
 
-# Routers
-app.include_router(health.router)
-app.include_router(sessions.router)
-app.include_router(planner.router)
-app.include_router(designer.router)
-app.include_router(author.router)
-app.include_router(executor.router)
-app.include_router(curator.router)
-app.include_router(functional.router)
-app.include_router(uiux.router)
-app.include_router(debug_db.router)
+# Feature routes under /api/*
+app.include_router(sessions.router,   prefix=API_PREFIX)
+app.include_router(planner.router,    prefix=API_PREFIX)
+app.include_router(designer.router,   prefix=API_PREFIX)
+app.include_router(author.router,     prefix=API_PREFIX)
+app.include_router(executor.router,   prefix=API_PREFIX)
+app.include_router(curator.router,    prefix=API_PREFIX)
+app.include_router(functional.router, prefix=API_PREFIX)
+app.include_router(uiux.router,       prefix=API_PREFIX)
 
-# Create tables if they don't exist (safe to run every boot)
 @app.get("/")
 def root():
-    return {"ok": True, "service": "test-buddy-api", "docs": "/docs", "health": "/health"}
-
-# ✅ ADD THIS
-@app.on_event("startup")
-def _startup_create_tables():
-    """Ensure database tables exist on startup."""
-    ensure_tables()
+    return {
+        "ok": True,
+        "service": "test-buddy-api",
+        "docs": "/docs",
+        "health": "/health",
+        "api_base": API_PREFIX,
+    }

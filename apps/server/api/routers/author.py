@@ -1,33 +1,68 @@
-from fastapi import APIRouter, Depends, HTTPException
+# apps/server/api/routers/author.py
+from __future__ import annotations
+from uuid import UUID
+from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
-from core.base import registry
-from core.models import AuthorRequest, AuthorResponse, Artifact as ArtifactModel
-from db.crud import save_artifacts
-from api.deps import get_db
+from db.base import SessionLocal
+from db import models as m
+from db.crud import add_artifact_feature, add_artifact_steps
+from api.models import AuthorRequest, AuthorResponse
+from core.services.author_service import AuthorAgent
 
-router = APIRouter(tags=["author"])
+router = APIRouter(prefix="/author", tags=["author"])
+author = AuthorAgent()
 
-@router.post("/author", response_model=AuthorResponse)
-def author(req: AuthorRequest, db: Session = Depends(get_db)):
-    if not req.sid:
-        raise HTTPException(status_code=400, detail="sid is required")
-    out = registry.get("author").run(req.model_dump())
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-    # Expect out["artifacts"] like:
-    # [
-    #   {"kind":"feature","toolchain":"cypress-cucumber","feature_path":"...","feature_text":"..."},
-    #   {"kind":"steps","toolchain":"cypress-cucumber","step_path":"...","step_text":"..."}
-    # ]
-    rows = save_artifacts(db, req.sid, out.get("artifacts", []))
+@router.post(
+    "",
+    response_model=AuthorResponse,
+    summary="Generate and persist feature & step artifacts"
+)
+def create_artifacts(
+    req: AuthorRequest,
+    x_session_id: str = Header(..., alias="X-Session-Id"),
+    db: Session = Depends(get_db)
+):
+    # Validate session ID
+    try:
+        sid = UUID(x_session_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid X-Session-Id UUID")
 
-    artifacts = [
-        ArtifactModel(
-            id=r.id,
-            kind=r.kind, toolchain=r.toolchain,
-            feature_path=r.feature_path, step_path=r.step_path,
-            feature_text=r.feature_text, step_text=r.step_text
-        )
-        for r in rows
-    ]
-    return AuthorResponse(sid=req.sid, summary=out.get("summary", "Generated artifacts"), artifacts=artifacts)
+    # Confirm session exists
+    sess = db.query(m.Session).filter(m.Session.id == sid).first()
+    if not sess:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Normalize scenarios: accept either strings or dicts
+    scenarios = []
+    for s in (req.scenarios or []):
+        if isinstance(s, str):
+            scenarios.append({
+                "name": s,
+                "tags": [],
+                "given": ["I am on the app"],
+                "when": ["I perform an action"],
+                "then": ["I see the expected result"],
+            })
+        else:
+            scenarios.append(s)
+
+    # Run Author agent
+    result = author.author(scenarios)
+    feature = result["feature"]
+    steps = result["steps"]
+
+    # Persist generated artifacts
+    add_artifact_feature(db, sid, feature["path"], feature["text"])
+    add_artifact_steps(db, sid, steps["path"], steps["text"])
+
+    # Return structured response
+    return AuthorResponse(feature=feature, steps=steps)

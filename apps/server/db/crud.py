@@ -1,28 +1,31 @@
-import json
+# apps/server/db/crud.py
 import uuid
 from typing import List, Optional, Dict, Any
-
 from sqlalchemy.orm import Session
-from .base import SessionLocal
 from . import models as m
 
 # ---- Sessions ----
 def create_session(db: Session, module: str) -> m.Session:
+    """Create a new session for the given test module."""
     s = m.Session(module=module)
     db.add(s)
     db.commit()
     db.refresh(s)
     return s
 
+
 def get_session(db: Session, sid: str) -> Optional[m.Session]:
+    """Retrieve a session by UUID string (safe conversion)."""
     try:
         uid = uuid.UUID(sid)
     except Exception:
         return None
     return db.get(m.Session, uid)
 
+
 # ---- Decisions ----
 def add_decision(db: Session, sid: str, step: str, accepted: bool, note: Optional[str]) -> m.Decision:
+    """Persist a decision (approve/reject step)."""
     uid = uuid.UUID(sid)
     d = m.Decision(session_id=uid, step=step, accepted=accepted, note=note)
     db.add(d)
@@ -30,8 +33,10 @@ def add_decision(db: Session, sid: str, step: str, accepted: bool, note: Optiona
     db.refresh(d)
     return d
 
+
 # ---- Plans ----
 def save_plan(db: Session, sid: str, title: str, bullets: List[str]) -> m.Plan:
+    """Save a generated plan for a session."""
     uid = uuid.UUID(sid)
     p = m.Plan(session_id=uid, title=title, bullets={"bullets": bullets})
     db.add(p)
@@ -39,8 +44,10 @@ def save_plan(db: Session, sid: str, title: str, bullets: List[str]) -> m.Plan:
     db.refresh(p)
     return p
 
-# ---- Artifacts (Cypress+Cucumber) ----
+
+# ---- Artifacts ----
 def save_artifacts(db: Session, sid: str, artifacts: List[Dict[str, Any]]) -> List[m.Artifact]:
+    """Save feature/step artifacts for a session."""
     uid = uuid.UUID(sid)
     rows: List[m.Artifact] = []
     for a in artifacts:
@@ -60,8 +67,10 @@ def save_artifacts(db: Session, sid: str, artifacts: List[Dict[str, Any]]) -> Li
         db.refresh(r)
     return rows
 
+
 # ---- Runs ----
 def save_run(db: Session, sid: str, suite: str, status: str, summary: Dict[str, Any]) -> m.Run:
+    """Record a run summary (e.g., test execution results)."""
     uid = uuid.UUID(sid)
     r = m.Run(session_id=uid, suite=suite, status=status, summary=summary or {})
     db.add(r)
@@ -69,11 +78,14 @@ def save_run(db: Session, sid: str, suite: str, status: str, summary: Dict[str, 
     db.refresh(r)
     return r
 
+
 # ---- Session aggregate ----
 def get_session_full(db: Session, sid: str) -> Optional[Dict[str, Any]]:
+    """Return full snapshot of a session including plans, artifacts, runs, decisions."""
     s = get_session(db, sid)
     if not s:
         return None
+
     return {
         "id": str(s.id),
         "module": s.module,
