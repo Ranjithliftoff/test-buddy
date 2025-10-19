@@ -1,12 +1,13 @@
 # apps/server/api/models.py
+from __future__ import annotations
+from typing import Any, Dict, List, Optional, Literal
 from pydantic import BaseModel
-from typing import List, Optional, Literal, Dict, Any
 
-# --- Core Session ---
+# --- sessions ---
 class SessionCreate(BaseModel):
     module: Literal["uiux", "functional", "api", "smoke", "regression"] = "functional"
 
-# --- Planner ---
+# --- planner ---
 class IntakeItem(BaseModel):
     kind: Literal["figma", "web", "doc", "sheet"]
     url: Optional[str] = None
@@ -19,23 +20,23 @@ class PlanResponse(BaseModel):
     title: str
     bullets: List[str]
 
-# --- Designer ---
+# --- designer ---
 class DesignRequest(BaseModel):
     outline: Optional[str] = None
 
-# --- Author ---
+class DesignResponse(BaseModel):
+    scenarios: List[Dict[str, Any]]
+
+# --- author ---
 class AuthorRequest(BaseModel):
-    scenarios: List[str] = []
+    # Allow strings (scenario names) or full objects. Router will normalize.
+    scenarios: List[Any] = []
 
-# --- Executor ---
-class ExecuteRequest(BaseModel):
-    suite: Literal["smoke", "regression", "generated"] = "generated"
+class AuthorResponse(BaseModel):
+    feature: Dict[str, str]   # {path, text}
+    steps: Dict[str, str]     # {path, text}
 
-# --- Curator ---
-class CurateRequest(BaseModel):
-    run_id: str
-
-# --- Decision ---
+# --- decisions ---
 class Decision(BaseModel):
     step: Literal["planner", "designer", "author", "executor", "curator"]
     accepted: bool
