@@ -11,7 +11,7 @@ from db.base import SessionLocal
 from db import models as m  # SQLAlchemy models
 # Pydantic request models (the ones you showed earlier)
 # SessionCreate(module=...), Decision(step/accepted/note)
-from api.models import SessionCreate, Decision as DecisionIn
+from ..models import SessionCreate, Decision as DecisionIn
 
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
